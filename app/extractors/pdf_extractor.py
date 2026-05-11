@@ -1,5 +1,4 @@
-import fitz
-import os
+import os, fitz
 from dotenv import load_dotenv
 from PIL import Image
 import pytesseract

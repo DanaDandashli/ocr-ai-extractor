@@ -13,7 +13,7 @@ def extract_text_from_xml(file_path: str) -> str:
 
     def recurse(element):
         if element.text and element.text.strip():
-            text_parts.append(element.text.strip())
+            text_parts.append(f"{element.tag}: {element.text.strip()}")
 
         for child in element:
             recurse(child)
