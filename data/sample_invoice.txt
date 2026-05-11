@@ -1,0 +1,35 @@
+INVOICE
+
+Invoice Number: INV-2026-001
+Date: 11-05-2026
+
+Vendor: AI Store Ltd.
+Customer: John Smith
+
+----------------------------------------
+
+Items:
+1. Laptop
+   Quantity: 1
+   Unit Price: 1200 USD
+
+2. Wireless Mouse
+   Quantity: 2
+   Unit Price: 25 USD
+
+3. Mechanical Keyboard
+   Quantity: 1
+   Unit Price: 45 USD
+
+----------------------------------------
+
+Subtotal: 1295 USD
+Tax (10%): 129.5 USD
+TOTAL: 1424.5 USD
+
+Payment Method: Credit Card
+Status: Paid
+
+----------------------------------------
+
+Thank you for your purchase!
