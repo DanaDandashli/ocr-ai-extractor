@@ -23,34 +23,6 @@ INPUT FILE → TEXT EXTRACTION → LLM PROCESSING → EXPORT LAYER
 
 ---
 
-## 🧠 System Architecture Overview
-
-flowchart TD
-
-A[📄 Input Layer<br/>PDF / Image / DOCX / HTML / XLSX / TXT / EMAIL / XML]
-
-B[🔍 Extraction Layer<br/>PyMuPDF · Tesseract OCR · BeautifulSoup · openpyxl · docx]
-
-C[🧹 Text Cleaning Layer<br/>Normalization & Formatting]
-
-D[🤖 LLM Processing Layer<br/>OpenAI / OpenRouter<br/>Structured JSON Output]
-
-E[📊 Export Layer<br/>Excel · PDF · DOCX · HTML · Google Sheets · PostgreSQL]
-
-F1[📁 Excel Export]
-F2[📄 PDF / DOCX / HTML]
-F3[☁️ Google Sheets]
-F4[🗄️ PostgreSQL DB]
-
-A --> B --> C --> D --> E
-
-E --> F1
-E --> F2
-E --> F3
-E --> F4
-
----
-
 ## ⚙️ main.py (Main Control Center)
 
 All execution is controlled from `main.py`.
@@ -247,4 +219,4 @@ Excel · PDF · DOCX · HTML · Google Sheets · Database
 
 ## 👨‍💻 Author
 
-AI-powered invoice extraction system for structured document intelligence and automation.
+Dana Dandashli
