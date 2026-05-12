@@ -1,8 +1,12 @@
 invoice_schema = {
     "invoice_number": None,
     "date": None,
-    "vendor": None,
-    "customer": None,
+    "vendor_name": None,
+    "vendor_address": None,
+    "vendor_phone_nb": None,
+    "customer_name": None,
+    "customer_address": None,
+    "customer_phone_nb": None,
     "items": [
         {
             "name": None,

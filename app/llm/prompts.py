@@ -1,7 +1,7 @@
 invoice_extraction_prompt = """
 You are a strict invoice extraction system.
 
-Your job is to convert raw OCR/document text into structured JSON.
+Your job is to convert raw OCR/document text/image into structured JSON.
 
 OUTPUT RULES (MANDATORY):
 - Return ONLY valid JSON (no markdown, no text)
@@ -10,14 +10,21 @@ OUTPUT RULES (MANDATORY):
 - Do NOT return explanations
 - Do NOT hallucinate values
 - Do NOT add any fields outside the schema
+- Do NOT calculate values like totals
 - Ensure numeric fields are numbers, not strings 
 - Ignore irrelevant/noisy text and symbols
+- NEVER return placeholder values
+- NEVER return values like:
+  "Company Street, City, State, ZIP Code"
+  "Company Phone"
+  "Address Here"
 - Use null for missing values
+- If "Shipping & Handling" (or similar) appears as a line item in the items table, 
+  extract it ONLY as a line item, and set "shipping" in the summary to 0.0 if it is not found.
 
 INVOICE STRUCTURE RULES:
 1. VENDOR (issuer)
 - Usually top section of document
-- Company name, address, contact info
 
 2. CUSTOMER (receiver)
 - Usually under "Bill To", "Customer", or similar label
@@ -42,7 +49,4 @@ FINAL VALIDATION RULE:
 
 SCHEMA:
 {schema}
-
-TEXT:
-{text}
 """

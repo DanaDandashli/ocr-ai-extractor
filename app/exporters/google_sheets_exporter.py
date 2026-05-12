@@ -18,63 +18,46 @@ def export_to_google_sheets(data, sheet_name="Invoices"):
     }, scopes=scope)
 
     client = gspread.authorize(creds)
-    sheet = client.open_by_key(os.getenv("GOOGLE_SHEET_KEY")).sheet1
+    spreadsheet = client.open_by_key(os.getenv("GOOGLE_SHEET_KEY"))
+    pages = data.get("pages", [data])
 
-    sheet.clear()
-    row = 1
+    for page in pages:
+        invoice_number = str(page.get("invoice_number", "unknown"))
 
-    sheet.update(f"A{row}", [["Field", "Value"]])
-    row += 1
+        try:
+            ws = spreadsheet.worksheet(invoice_number)
+            ws.clear()
+        except gspread.exceptions.WorksheetNotFound:
+            ws = spreadsheet.add_worksheet(
+                title=invoice_number, rows=100, cols=20)
 
-    main_fields = [
-        "invoice_number",
-        "date",
-        "vendor",
-        "customer",
-        "currency"
-    ]
+        rows = []
 
-    for field in main_fields:
-        sheet.update(
-            f"A{row}:B{row}",
-            [[field, data.get(field)]]
-        )
-        row += 1
+        # Invoice details
+        main_fields = [
+            "invoice_number", "date", "vendor_name", "vendor_address",
+            "customer_name", "customer_address", "currency"
+        ]
+        for field in main_fields:
+            rows.append([field, str(page.get(field) or "")])
 
-    row += 2  
+        rows.append([])
 
-    sheet.update(
-        f"A{row}:D{row}",
-        [["Name", "Quantity", "Unit Price", "Total"]]
-    )
-    row += 1
-
-    for item in data.get("items", []):
-        sheet.update(
-            f"A{row}:D{row}",
-            [[
-                item.get("name"),
+        # Items table
+        rows.append(["Name", "Quantity", "Unit Price", "Total"])
+        for item in page.get("items", []):
+            rows.append([
+                str(item.get("name") or ""),
                 item.get("quantity"),
                 item.get("unit_price"),
                 item.get("total")
-            ]]
-        )
-        row += 1
+            ])
 
-    row += 2
+        # Summary
+        summary_fields = ["subtotal", "discount", "shipping", "tax", "total"]
+        for field in summary_fields:
+            rows.append([field, str(page.get(field) or "")])
 
-    summary_fields = [
-        "subtotal",
-        "discount",
-        "shipping",
-        "tax",
-        "total"
-    ]
-    for field in summary_fields:
-        sheet.update(
-            f"A{row}:B{row}",
-            [[field, data.get(field)]]
-        )
-        row += 1
+        ws.update(f"A1", rows)
 
-    print("Google Sheets exported (Excel-style layout).")
+        print(f"Google Sheets exported: tab '{invoice_number}'")
