@@ -50,43 +50,46 @@ export_to_html(invoice_json, output_dir)
 
 ## 🔧 How to Use
 
-### 📌 Change INPUT file type (in main.py)
+### 📌 Change INPUT file type
 
-Supported formats:
-
-- PDF
-- Image
-- Excel
-- DOCX
-- HTML
-- TXT
-- XML
-- Email
-
-Example:
+Modify this line inside main.py:
 
 ```python
 text = extract_file("data/sample_invoice.pdf")
 ```
+You can replace:
+
+.pdf, 
+.png,
+.jpg,
+.jpeg,
+.webp,
+.xlsx,
+.docx,
+.html,
+.txt,
+.xml,
+.eml
 
 ---
 
-### 📌 Change EXPORT format (in main.py)
+### 📌 Change EXPORT format
 
-Supported exporters:
-
-- Excel
-- PDF
-- DOCX
-- HTML
-- Google Sheets
-- PostgreSQL Database
+Modify the exporter function inside main.py.
 
 Example:
 
 ```python
 export_to_excel(invoice_json, output_dir)
 ```
+Available exporters:
+
+- export_to_excel
+- export_to_pdf
+- export_to_docx
+- export_to_html
+- export_to_google_sheets
+- export_to_db
 
 ---
 
@@ -195,6 +198,241 @@ GOOGLE_PRIVATE_KEY=
 GOOGLE_SHEET_KEY=
 
 TESSERACT_PATH=
+```
+
+---
+
+## Invoice Exporter — Setup Guide
+
+## ☁️ Google Sheets Setup
+
+If you want to export invoices to Google Sheets, follow **all steps below** carefully.
+
+---
+
+### Step 1 — Create Google Cloud Project
+
+Go to [https://console.cloud.google.com/](https://console.cloud.google.com/) and create a new project.
+
+---
+
+### Step 2 — Enable APIs
+
+Enable the following APIs in your project:
+
+- **Google Sheets API**
+- **Google Drive API**
+
+---
+
+### Step 3 — Create Service Account
+
+Inside Google Cloud Console:
+
+1. Go to **APIs & Services → Credentials**
+2. Click **Create Credentials → Service Account**
+3. Complete the service account creation flow
+
+---
+
+### Step 4 — Generate Credentials
+
+After creating the service account:
+
+1. Open the service account
+2. Go to the **Keys** tab
+3. Click **Add Key → Create New Key → JSON**
+4. Download the JSON credentials file
+
+---
+
+### Step 5 — Extract Required Values
+
+From the downloaded JSON file, copy the following fields:
+
+```
+client_email
+private_key
+```
+
+Paste them into your `.env` file:
+
+```env
+GOOGLE_CLIENT_EMAIL=your-service-account@project-id.iam.gserviceaccount.com
+GOOGLE_PRIVATE_KEY=-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----
+```
+
+> ⚠️ **Important:**
+> - Keep the private key on a **single line** (use `\n` for line breaks)
+> - Do **not** expose it publicly
+
+---
+
+### Step 6 — Create Google Sheet Manually
+
+Before running the code:
+
+1. Open [Google Sheets](https://sheets.google.com)
+2. Create a new spreadsheet manually
+
+Example sheet name:
+
+```
+Invoices
+```
+
+---
+
+### Step 7 — Get Google Sheet Key
+
+From the Google Sheet URL:
+
+```
+https://docs.google.com/spreadsheets/d/THIS_PART_IS_THE_KEY/edit
+```
+
+Copy the key portion and add it to `.env`:
+
+```env
+GOOGLE_SHEET_KEY=THIS_PART_IS_THE_KEY
+```
+
+---
+
+### Step 8 — Share Sheet with Service Account
+
+1. Open your Google Sheet
+2. Click **Share**
+3. Add the service account email, for example:
+
+```
+your-service-account@project-id.iam.gserviceaccount.com
+```
+
+4. Grant it **Editor** access
+
+> ⚠️ Without this step, the exporter will fail.
+
+---
+
+## 🗄️ PostgreSQL Database Setup
+
+If you want to export invoices into PostgreSQL:
+
+---
+
+### Step 1 — Fill Database Environment Variables
+
+Inside `.env`:
+
+```env
+DB_HOST=localhost
+DB_USER=your_db_user
+DB_PASSWORD=your_db_password
+DB_NAME=your_db_name
+DB_PORT=5432
+```
+
+---
+
+### Step 2 — Initialize Database Tables
+
+Run this command **once** to set up the database schema:
+
+```bash
+python -m app.db.init_db
+```
+
+This will automatically create the following tables if they do not already exist:
+
+- `invoices`
+- `invoice_items`
+
+> ✅ You only need to run this command once.
+
+---
+
+## 🖼️ Tesseract OCR Setup
+
+This project uses **Tesseract OCR** for image and scanned invoice text extraction.
+
+---
+
+### Step 1 — Install Tesseract OCR
+
+#### Windows
+
+Download and install from:
+
+- [https://github.com/UB-Mannheim/tesseract/wiki](https://github.com/UB-Mannheim/tesseract/wiki)
+
+> ⚠️ **During installation, select these additional languages:**
+> - English (`eng`)
+> - Arabic (`ara`)
+> - French (`fra`)
+
+---
+
+### Step 2 — Locate Tesseract Executable Path
+
+After installation, find the location of `tesseract.exe`.
+
+Common Windows path:
+
+```text
+C:\Program Files\Tesseract-OCR\tesseract.exe
+```
+
+---
+
+### Step 3 — Add Path to `.env`
+
+Inside `.env`:
+
+```env
+TESSERACT_PATH=C:\Program Files\Tesseract-OCR\tesseract.exe
+```
+
+---
+
+### Step 4 — Verify Installation
+
+Run this command in your terminal:
+
+```bash
+tesseract --version
+```
+
+If installed correctly, Tesseract version information will appear.
+
+---
+
+### Notes
+
+- Without Tesseract installed, image OCR will not work.
+- Arabic OCR requires the `ara.traineddata` language file.
+- French OCR requires the `fra.traineddata` language file.
+- Language files are usually installed automatically if selected during setup.
+
+---
+
+## 📄 Full `.env` Example
+
+```env
+# Google Sheets
+GOOGLE_CLIENT_EMAIL=your-service-account@project-id.iam.gserviceaccount.com
+GOOGLE_PRIVATE_KEY=-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----
+GOOGLE_SHEET_KEY=your_google_sheet_key_here
+
+# PostgreSQL
+DB_HOST=localhost
+DB_USER=your_db_user
+DB_PASSWORD=your_db_password
+DB_NAME=your_db_name
+DB_PORT=5432
+
+# Tesseract OCR
+TESSERACT_PATH=C:\Program Files\Tesseract-OCR\tesseract.exe
 ```
 
 ---
