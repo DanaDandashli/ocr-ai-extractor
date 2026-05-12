@@ -527,8 +527,6 @@ Excel · PDF · DOCX · HTML · Google Sheets · PostgreSQL
 ```
 ````
 
----
-
 ## 👨‍💻 Author
 
 Dana Dandashli
