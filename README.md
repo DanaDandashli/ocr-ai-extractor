@@ -5,7 +5,7 @@ A modular AI-powered pipeline that extracts structured invoice data from multipl
 ---
 
 <p align="center">
-  <img src="assets/architecture.png" width="700"/>
+  <img src="assets/architecture.png" width="900"/>
 </p>
 
 
@@ -525,7 +525,6 @@ Structured JSON
 Export Layer
 Excel · PDF · DOCX · HTML · Google Sheets · PostgreSQL
 ```
-````
 
 ## 👨‍💻 Author
 
