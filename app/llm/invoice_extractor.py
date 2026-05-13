@@ -88,16 +88,29 @@ def extract_invoice_from_image(image_path: str) -> dict:
     return parse_json_response(result)
 
 
+def cleanup_images(image_paths: list):
+    """Remove temporary page images after extraction."""
+    for path in image_paths:
+        try:
+            if os.path.exists(path):
+                os.remove(path)
+        except OSError as e:
+            print(f"[WARN] Could not delete temp file {path}: {e}")
+
+
 def extract_invoice_from_pdf(pdf_path: str) -> dict:
     """
     Full pipeline: PDF -> images -> vision extraction
     """
     images = pdf_to_images(pdf_path)
     results = []
+    try:
+        for img in images:
+            result = extract_invoice_from_image(img)
+            results.append(result)
     
-    for img in images:
-        result = extract_invoice_from_image(img)
-        results.append(result)
+    finally:
+        cleanup_images(images)
 
     # If multi-page invoice -> merge logic
     if len(results) == 1:
