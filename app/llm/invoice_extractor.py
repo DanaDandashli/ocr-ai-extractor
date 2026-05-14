@@ -1,4 +1,4 @@
-import os, json, base64
+import os, json, base64, mimetypes
 from dotenv import load_dotenv
 from openai import OpenAI
 from llm.cleaner import clean_text
@@ -6,7 +6,7 @@ from llm.schema import invoice_schema
 from llm.prompts import invoice_extraction_prompt
 from utils.base import parse_json_response
 from extractors.pdf_to_image import pdf_to_images
-
+from utils.handle_errors import handle_llm_exception
 
 load_dotenv()
 
@@ -24,21 +24,26 @@ def extract_invoice_json(text: str) -> dict:
     prompt = invoice_extraction_prompt.format(
         schema=json.dumps(invoice_schema, indent=2),
     )
-    response = client.chat.completions.create(
-        model="openai/gpt-4o-mini",
-        temperature=0,
-        response_format={"type": "json_object"},
-        messages=[
-            {
-                "role": "system",
-                "content": "You extract structured invoice data."
-            },
-            {
-                "role": "user",
-                "content": f"{prompt}\n\nInvoice Text:\n{cleaned_text}"
-            }
-        ]
-    )
+    try:
+        response = client.chat.completions.create(
+            model="openai/gpt-4o-mini",
+            temperature=0,
+            response_format={"type": "json_object"},
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You extract structured invoice data."
+                },
+                {
+                    "role": "user",
+                    "content": f"{prompt}\n\nInvoice Text:\n{cleaned_text}"
+                }
+            ]
+        )
+    
+    except Exception as e:
+        return handle_llm_exception(e)
+
     #print(response.usage)
     result = response.choices[0].message.content
 
@@ -57,34 +62,39 @@ def extract_invoice_from_image(image_path: str) -> dict:
     Sends image to vision model and returns structured JSON.
     """
     base64_image = encode_image(image_path)
+    mime = mimetypes.guess_type(image_path)[0] or "image/png"
     prompt = invoice_extraction_prompt.format(
         schema=json.dumps(invoice_schema, indent=2)
     )
-    response = client.chat.completions.create(
-        model="openai/gpt-4o-mini",
-        temperature=0,
-        messages=[
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": prompt
-                    },
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:image/png;base64,{base64_image}"
+    try:
+        response = client.chat.completions.create(
+            model="openai/gpt-4o-mini",
+            temperature=0,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": prompt
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:{mime};base64,{base64_image}"
+                            }
                         }
-                    }
-                ]
-            }
-        ]
-    )
+                    ]
+                }
+            ]
+        )
+    
+    except Exception as e:
+        return handle_llm_exception(e)
+    
     #print(response.usage)
     result = response.choices[0].message.content
-    #print("\n=== RAW MODEL RESPONSE ===\n")
-    #print(result)
+    
     return parse_json_response(result)
 
 
@@ -107,6 +117,9 @@ def extract_invoice_from_pdf(pdf_path: str) -> dict:
     try:
         for img in images:
             result = extract_invoice_from_image(img)
+            if isinstance(result, dict) and result.get("success") is False:
+                return result
+            
             results.append(result)
     
     finally:

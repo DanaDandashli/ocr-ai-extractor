@@ -1,13 +1,12 @@
 import os
 from llm.invoice_extractor import extract_invoice_json, extract_invoice_from_pdf, extract_invoice_from_image
-# from extractors.pdf_extractor import extract_text_from_pdf
-# from extractors.image_extractor import extract_text_from_image
 from extractors.docx_extractor import extract_text_from_docx
 from extractors.excel_extractor import extract_text_from_excel
 from extractors.html_extractor import extract_text_from_html
 from extractors.text_extractor import extract_text_from_txt
 from extractors.xml_extractor import extract_text_from_xml
 from extractors.email_extractor import extract_text_from_email
+from utils.handle_errors import make_error, input_file_validation
 
 """
 Smart router:
@@ -48,38 +47,40 @@ def validate_final_invoice(result: dict):
     """
     Ensures extracted invoice is meaningful, not empty hallucination.
     """
-    
+
     if not isinstance(result, dict):
-        return {
-            "success": False,
-            "stage": "final_validation",
-            "error_code": "INVALID_RESULT_TYPE",
-            "message": "Internal error: invalid extraction result."
-        }
+        return make_error(
+            "INVALID_RESULT_TYPE",
+            "Internal error: invalid extraction result.",
+            "final_validation"
+        )
 
     score = invoice_quality_score(result)
     if score < 5:
-        return {
-            "success": False,
-            "stage": "validation",
-            "error_code": "LOW_CONFIDENCE_EXTRACTION",
-            "message": "The document quality is too low to reliably extract invoice data.\nUpload a clear invoice..."
-        }
-    
+        return make_error(
+            "LOW_CONFIDENCE_EXTRACTION",
+            "The document quality is too low to reliably extract invoice data.\nUpload a clear invoice...",
+            "validation"
+        )
+
     return None
 
 
 def extract_file(file_path: str):
     ext = os.path.splitext(file_path)[1].lower()
 
+    # Input validation
+    error = input_file_validation(file_path, ext)
+    if error:
+        return error
+    
     # Vision Pipeline
     if ext == ".pdf":
         result = extract_invoice_from_pdf(file_path)
 
-        # Pass through extractor errors directly
-        if isinstance(result, list) and result.get("success") is False:
+        if isinstance(result, dict) and result.get("success") is False:
             return result
-
+    
         if isinstance(result, dict) and "pages" in result:
             return result
         
@@ -91,6 +92,10 @@ def extract_file(file_path: str):
 
     elif ext in [".png", ".jpg", ".jpeg", ".webp"]:
         result = extract_invoice_from_image(file_path)
+
+        if isinstance(result, dict) and result.get("success") is False:
+            return result
+    
         error = validate_final_invoice(result)
         if error:
             return error
@@ -117,7 +122,21 @@ def extract_file(file_path: str):
         text = extract_text_from_email(file_path)
 
     else:
-        raise ValueError(f"Unsupported file type: {ext}")
+        return make_error(
+            "UNSUPPORTED_FILE_TYPE",
+            f"Unsupported file type '{ext}'. Please upload a supported file format (PDF, PNG, JPG, DOCX, XLSX, HTML, TXT, XML, EML)."
+        )
     
     # Convert extracted text -> JSON
-    return extract_invoice_json(text)
+    result = extract_invoice_json(text)
+
+    if isinstance(result, dict) and result.get("success") is False:
+        return result
+    
+    # Apply validation to text also
+    error = validate_final_invoice(result)
+    if error:
+        return error
+
+    return result
+

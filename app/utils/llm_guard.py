@@ -1,5 +1,5 @@
-import json
-import re
+import json, re
+from utils.handle_errors import make_error
 
 
 # Step 1: Safe JSON Parsing
@@ -9,12 +9,12 @@ def safe_parse_json(raw_text: str):
     """
 
     if not raw_text or not isinstance(raw_text, str):
-        return {
-            "success": False,
-            "stage": "llm",
-            "error_code": "EMPTY_LLM_RESPONSE",
-            "message": "The AI returned an empty response."
-        }
+        return make_error(
+            "EMPTY_LLM_RESPONSE",
+            "The AI returned an empty response.",
+            "llm_error",
+            "LLM_ERROR"
+        )
 
     try:
         # Try direct parsing first
@@ -31,12 +31,12 @@ def safe_parse_json(raw_text: str):
     except Exception:
         pass
 
-    return {
-        "success": False,
-        "stage": "llm",
-        "error_code": "INVALID_JSON_RESPONSE",
-        "message": "The AI returned malformed JSON."
-    }
+    return make_error(
+        "INVALID_JSON_RESPONSE",
+        "The AI returned malformed JSON.",
+        "llm_error",
+        "LLM_ERROR"
+    )
 
 
 # Step 2: Schema Validation
@@ -56,23 +56,23 @@ def validate_schema(data: dict):
     ]
 
     if not isinstance(data, dict):
-        return {
-            "success": False,
-            "stage": "llm",
-            "error_code": "SCHEMA_INVALID_TYPE",
-            "message": "LLM output is not a valid object."
-        }
+        return make_error(
+            "SCHEMA_INVALID_TYPE",
+            "LLM output is not a valid object.",
+            "llm_error",
+            "LLM_ERROR"
+        )
 
     missing = [f for f in required_fields if f not in data]
 
     if missing:
-        return {
-            "success": False,
-            "stage": "llm",
-            "error_code": "SCHEMA_VALIDATION_FAILED",
-            "message": f"Missing fields: {missing}"
-        }
-
+        return make_error(
+            "SCHEMA_VALIDATION_FAILED",
+            f"Missing fields: {missing}",
+            "llm_error",
+            "LLM_ERROR"
+        )
+    
     return None
 
 
