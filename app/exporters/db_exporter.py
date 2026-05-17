@@ -1,4 +1,4 @@
-from db.connection import get_connection
+from app.exporters.db.connection import get_connection
 
 
 def export_to_db(data):

@@ -1,5 +1,5 @@
 import os
-from app.db.connection import get_connection
+from app.exporters.db.connection import get_connection
 
 
 def init_db():

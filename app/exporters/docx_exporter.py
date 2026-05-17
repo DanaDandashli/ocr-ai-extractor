@@ -1,60 +1,46 @@
-import os
+import os, json
 from docx import Document
-from docx.shared import Inches
-from utils.file_naming import generate_filename
+from app.file_naming import generate_filename
 
 
-def export_to_docx(data, output_dir):
-    pages = data.get("pages", [data])
+def _flatten_value(value) -> str:
+    if isinstance(value, (dict, list)):
+        return json.dumps(value, indent=2, ensure_ascii=False)
+    return str(value) if value is not None else ""
 
-    for page in pages:
-        filename = generate_filename(page, "docx")
-        output_path = os.path.join(output_dir, filename)
+
+def export_to_docx(data: dict, output_dir: str) -> None:
+    for page in data.get("pages", [data]):
         doc = Document()
-        doc.add_heading("INVOICE", level=1)
+        doc_type = page.get("document_type", "Document")
+        doc.add_heading(doc_type, level=1)
 
-        doc.add_heading("Invoice Details", level=2)
-        doc.add_paragraph(f"Invoice Number: {page.get('invoice_number')}")
-        doc.add_paragraph(f"Date: {page.get('date')}")
-        doc.add_paragraph(f"Vendor Name: {page.get('vendor_name')}")
-        doc.add_paragraph(f"Vendor Address: {page.get('vendor_address')}")
-        doc.add_paragraph(f"Customer Name: {page.get('customer_name')}")
-        doc.add_paragraph(f"Customer Address: {page.get('customer_address')}")
-        doc.add_paragraph(f"Currency: {page.get('currency')}")
+        for key, value in page.items():
+            if key == "document_type":
+                continue
+            label = key.replace("_", " ").title()
 
-        doc.add_heading("Items", level=2)
-        table = doc.add_table(rows=1, cols=4)
-        table.style = "Table Grid"
-        header_cells = table.rows[0].cells
-        header_cells[0].text = "Name"
-        header_cells[1].text = "Quantity"
-        header_cells[2].text = "Unit Price"
-        header_cells[3].text = "Total"
-        
-        header_cells[0].width = Inches(3.0)
-        header_cells[1].width = Inches(0.8)
-        header_cells[2].width = Inches(1.2)
-        header_cells[3].width = Inches(1.0)
+            if isinstance(value, list) and value and isinstance(value[0], dict):
+                doc.add_heading(label, level=2)
+                headers = list(value[0].keys())
+                table = doc.add_table(rows=1, cols=len(
+                    headers), style="Table Grid")
+                for i, h in enumerate(headers):
+                    table.rows[0].cells[i].text = h.replace("_", " ").title()
+                for row in value:
+                    cells = table.add_row().cells
+                    for i, h in enumerate(headers):
+                        cells[i].text = _flatten_value(row.get(h))
 
-        for item in page.get("items", []):
-            row_cells = table.add_row().cells
-            row_cells[0].text = str(item.get("name"))
-            row_cells[1].text = str(item.get("quantity"))
-            row_cells[2].text = str(item.get("unit_price"))
-            row_cells[3].text = str(item.get("total"))
+            elif isinstance(value, dict):
+                doc.add_heading(label, level=2)
+                for k, v in value.items():
+                    doc.add_paragraph(
+                        f"{k.replace('_', ' ').title()}: {_flatten_value(v)}")
 
-            row_cells[0].width = Inches(3.0)
-            row_cells[1].width = Inches(0.8)
-            row_cells[2].width = Inches(1.2)
-            row_cells[3].width = Inches(1.0)
+            else:
+                doc.add_paragraph(f"{label}: {_flatten_value(value)}")
 
-        doc.add_heading("Summary", level=2)
-        doc.add_paragraph(f"Subtotal: {page.get('subtotal')}")
-        doc.add_paragraph(f"Discount: {page.get('discount')}")
-        doc.add_paragraph(f"Shipping: {page.get('shipping')}")
-        doc.add_paragraph(f"Tax: {page.get('tax')}")
-        doc.add_paragraph(f"Total: {page.get('total')}")
-
-        doc.save(output_path)
-
-        print(f"DOCX exported: {output_path}")
+        path = os.path.join(output_dir, generate_filename(page, "docx"))
+        doc.save(path)
+        print(f"DOCX exported: {path}")

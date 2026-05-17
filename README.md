@@ -1,6 +1,6 @@
-# 🧾 AI Invoice Extraction & Multi-Exporter System
+# 🧾 AI Document Extraction & Multi-Exporter System
 
-A modular AI-powered pipeline that extracts structured invoice data from multiple file types, processes it using LLMs and Vision Models, and exports it into various formats and storage systems.
+A modular AI-powered pipeline that extracts structured document data from multiple file types, processes it using LLMs and Vision Models, and exports it into various formats and storage systems.
 
 ---
 
@@ -58,8 +58,8 @@ Export Layer
 
 Used for:
 
-- PDF invoices
-- Scanned invoices
+- PDF documents
+- Scanned documents
 - Images (`png`, `jpg`, `jpeg`, `webp`)
 
 ---
@@ -79,11 +79,11 @@ You decide:
 ## Example
 
 ```python
-# Step 1: Extract invoice data
-invoice_json = extract_file("data/scanned_invoice.pdf")
+# Step 1: Extract document data
+document_json = extract_file("data/scanned_invoice.pdf")
 
 # Step 2: Export result
-export_to_html(invoice_json, output_dir)
+export(document_json, format="html", output_dir=output_dir)
 ```
 
 ---
@@ -95,7 +95,7 @@ export_to_html(invoice_json, output_dir)
 Modify this line inside `main.py`:
 
 ```python
-invoice_json = extract_file("data/sample_invoice.pdf")
+document_json = extract_file("data/sample_invoice.pdf")
 ```
 
 Supported formats:
@@ -113,40 +113,60 @@ Modify exporter function inside `main.py`.
 Example:
 
 ```python
-export_to_excel(invoice_json, output_dir)
+export(document_json, format="html", output_dir=output_dir)
 ```
 
-Available exporters:
+Available formats:
 
-- `export_to_excel`
-- `export_to_pdf`
-- `export_to_docx`
-- `export_to_html`
-- `export_to_google_sheets`
-- `export_to_db`
+- `html`
+- `excel`
+- `docx`
+- `pdf`
+- `sheets`
+- `db`
 
 ---
 
 # 📂 Project Structure
 
 ```text
-app/
+ocr-ai-extractor/
 │
-├── data/                 # Sample invoices
-├── temp_pages/           # PDF pages converted to images
-├── extractors/           # File → Text extractors
-├── llm/                  # LLM & Vision extraction layer
-├── exporters/            # Export systems
-├── db/                   # Database layer
-├── utils/                # Helpers & utilities
-└── main.py               # Main controller
+├── app/
+│   ├── fonts/                    # Arabic & custom fonts
+│   ├── exporters/                # Export systems
+│   │   ├── db/                   # Database layer
+│   │   ├── excel_exporter.py
+│   │   ├── pdf_exporter.py
+│   │   ├── docx_exporter.py
+│   │   ├── html_exporter.py
+│   │   ├── google_sheets_exporter.py
+│   │   └── db_exporter.py
+│   ├── cache.py                  # Caching layer
+│   ├── cleaning.py               # Data cleaning utilities
+│   ├── client.py                 # AI client setup
+│   ├── exporter.py               # Export router
+│   ├── file_extractor.py         # File → Text extraction
+│   ├── file_naming.py            # Unique filename generator
+│   ├── handle_errors.py          # Error handling
+│   ├── lookup.py                 # Lookup utilities
+│   └── router.py                 # Extraction pipeline router
+│
+├── cache/                        # Cached extraction results
+├── assets/                       # README images
+├── data/                         # Sample documents
+├── output/                       # Exported files
+├── temp_pages/                   # PDF pages converted to images
+├── .env                          # Environment variables
+├── requirements.txt              # Project dependencies
+└── main.py                       # Main controller
 ```
 
 ---
 
 # 🖼️ temp_pages Folder
 
-When processing PDF invoices using the Vision pipeline:
+When processing PDF documents using the Vision pipeline:
 
 ```text
 PDF → Converted into images → Stored in temp_pages/
@@ -166,6 +186,29 @@ These temporary images are used during Vision extraction.
 
 ---
 
+# ⚡ Caching System
+
+The system includes a caching layer to avoid redundant AI extraction calls.
+
+## How It Works
+
+```text
+File Submitted
+      ↓
+Cache Check
+      ↓
+Cache Hit? → Return Cached Result (instant)
+      ↓
+Cache Miss? → Run AI Extraction → Store in Cache → Return Result
+```
+
+- When a file is submitted, the system checks the `cache/` folder first
+- If the same file was processed before, the cached result is returned immediately — no API call is made
+- This reduces cost, improves response time, and avoids duplicate processing
+
+---
+
+
 # 📥 Supported Input Formats
 
 | Type | Method |
@@ -183,7 +226,7 @@ These temporary images are used during Vision extraction.
 
 # 🤖 Vision Model Support
 
-The system now supports Vision Models for scanned invoices and images.
+The system now supports Vision Models for scanned documents and images.
 
 ## Vision Pipeline
 
@@ -191,7 +234,7 @@ Used for:
 
 - scanned PDFs
 - screenshots
-- invoice images
+- document images
 - low-quality OCR cases
 
 ---
@@ -205,7 +248,7 @@ gpt-4o-mini
 Configured inside:
 
 ```text
-llm/invoice_extractor.py
+app/client.py
 ```
 
 ---
@@ -217,14 +260,14 @@ Traditional OCR sometimes fails to extract:
 - tables
 - item structures
 - blurry scans
-- complex invoice layouts
+- complex document layouts
 
 Vision Models improve:
 
 - table understanding
 - layout comprehension
-- scanned invoice extraction
-- structured invoice detection
+- scanned document extraction
+- structured document detection
 
 ---
 
@@ -233,7 +276,7 @@ Vision Models improve:
 | Destination | Purpose |
 |---|---|
 | Excel | Reporting |
-| PDF | Printable invoices |
+| PDF | Printable documents |
 | DOCX | Editable documents |
 | HTML | Web display |
 | Google Sheets | Cloud sharing |
@@ -254,7 +297,7 @@ Install Tesseract languages:
 # ⚙️ Installation
 
 ```bash
-python -m pip install openai pymupdf pillow pytesseract python-dotenv openpyxl beautifulsoup4 python-docx psycopg2-binary gspread google-auth google-auth-oauthlib google-auth-httplib2
+python -m pip install openai pymupdf pillow pytesseract python-dotenv openpyxl beautifulsoup4 python-docx psycopg2-binary gspread google-auth google-auth-oauthlib google-auth-httplib2 arabic-reshaper python-bidi
 ```
 
 ---
@@ -262,7 +305,7 @@ python -m pip install openai pymupdf pillow pytesseract python-dotenv openpyxl b
 # ▶️ Run Project
 
 ```bash
-.\.venv\Scripts\python.exe app/main.py
+.\.venv\Scripts\python.exe main.py
 ```
 
 ---
@@ -289,7 +332,7 @@ TESSERACT_PATH=
 
 # ☁️ Google Sheets Setup
 
-If you want to export invoices to Google Sheets, follow all steps below carefully.
+If you want to export documents to Google Sheets, follow all steps below carefully.
 
 ---
 
@@ -365,7 +408,7 @@ Create a spreadsheet manually.
 Example:
 
 ```text
-Invoices
+Documents
 ```
 
 ---
@@ -511,6 +554,9 @@ TESSERACT_PATH=C:\Program Files\Tesseract-OCR\tesseract.exe
 Input Files
 (PDF / Images / DOCX / XLSX / HTML / TXT / XML / Email)
         ↓
+Cache Layer
+(Return instantly if file was processed before)
+        ↓
 Extraction Layer
 (PyMuPDF · Tesseract · BeautifulSoup · openpyxl · docx)
         ↓
@@ -521,6 +567,7 @@ LLM Processing Layer
 (OpenAI / OpenRouter)
         ↓
 Structured JSON
+(Multi-invoice detection → pages[])
         ↓
 Export Layer
 Excel · PDF · DOCX · HTML · Google Sheets · PostgreSQL
