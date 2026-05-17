@@ -5,7 +5,7 @@ A modular AI-powered pipeline that extracts structured document data from multip
 ---
 
 <p align="center">
-  <img src="assets/architecture.png" width="900"/>
+  <img src="assets/architecture_2.png" width="900"/>
 </p>
 
 
