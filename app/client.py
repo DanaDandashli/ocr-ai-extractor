@@ -65,8 +65,7 @@ def extract_from_text(text: str) -> dict:
     cached = get_cache(key)
     if cached:
         return cached
-    print(f"[DEBUG] Text length: {len(text)}")        # ← add this
-    print(f"[DEBUG] Text preview:\n{text[:500]}")      # ← add this
+
     try:
         response = _client.chat.completions.create(
             model=_MODEL,
@@ -83,7 +82,6 @@ def extract_from_text(text: str) -> dict:
         return handle_llm_exception(e)
 
     raw = response.choices[0].message.content
-    print(f"[DEBUG] LLM raw response:\n{raw}")
 
     result = safe_parse_json(raw)
     set_cache(key, result)
