@@ -11,7 +11,7 @@ if isinstance(document_json, dict) and document_json.get("success") is False:
 
 output_dir = "output"
 os.makedirs(output_dir, exist_ok=True)
-export(document_json, format="html", output_dir=output_dir)
+export(document_json, format="db", output_dir=output_dir)
 
 # print("\n=== FINAL JSON ===\n")
 # print(document_json)
