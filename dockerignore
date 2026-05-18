@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Cache & temp files
+cache/
+temp_pages/
+*.cache
+
+# Output files
+output/
+
+# Environment
+.env
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+
+# Tests
+test/
+
+# Docs
+README.md
+assets/
+
+# OS
+.DS_Store
+Thumbs.db

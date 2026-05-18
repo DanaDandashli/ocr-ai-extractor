@@ -1,0 +1,44 @@
+version: "3.9"
+
+services:
+
+  # ── Main application ─────────────────────────────────────────────────────────
+  app:
+    build: .
+    container_name: ocr-ai-extractor
+    env_file: .env
+    ports:
+      - "8000:8000"
+    environment:
+      - TESSERACT_PATH=/usr/bin/tesseract
+      - DB_HOST=db
+    volumes:
+      - ./data:/app/data           # input documents
+      - ./output:/app/output       # exported files
+      - ./cache:/app/cache         # cached extractions
+      - ./temp_pages:/app/temp_pages
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # ── PostgreSQL database ───────────────────────────────────────────────────────
+  db:
+    image: postgres:15-alpine
+    container_name: ocr-ai-db
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./app/exporters/db/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
