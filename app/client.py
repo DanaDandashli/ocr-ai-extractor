@@ -12,7 +12,7 @@ from app.file_extractor import pdf_to_images
 load_dotenv()
 
 _MODEL = "qwen/qwen3.5-flash-02-23"
-_MAX_TOKENS = 1000
+_MAX_TOKENS = 4000
 
 document_extraction_prompt = """
 You are a precise data extraction engine.

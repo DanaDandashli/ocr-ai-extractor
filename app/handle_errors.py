@@ -67,14 +67,33 @@ def handle_llm_exception(e: Exception) -> dict:
 def safe_parse_json(raw: str) -> dict:
     if not raw or not isinstance(raw, str):
         return make_error("EMPTY_LLM_RESPONSE", "The AI returned an empty response.", "llm_error", "LLM_ERROR")
+
+    cleaned = raw.strip()
+    cleaned = re.sub(r"^```json\s*", "", cleaned)
+    cleaned = re.sub(r"^```\s*",     "", cleaned)
+    cleaned = re.sub(r"\s*```$",     "", cleaned)
+    cleaned = cleaned.strip()
+
+    # Attempt 1: direct parse
     try:
-        return json.loads(raw)
+        return json.loads(cleaned)
     except json.JSONDecodeError:
         pass
+
+    # Attempt 2: extract first {...} block
     try:
-        match = re.search(r"\{.*\}", raw, re.DOTALL)
+        match = re.search(r"\{.*\}", cleaned, re.DOTALL)
         if match:
             return json.loads(match.group())
     except json.JSONDecodeError:
         pass
+
+    # Attempt 3: detect truncated JSON and report clearly
+    if cleaned.startswith("{") and not cleaned.endswith("}"):
+        return make_error(
+            "TRUNCATED_JSON_RESPONSE",
+            "The AI response was cut off. Try increasing _MAX_TOKENS in client.py.",
+            "llm_error", "LLM_ERROR"
+        )
+
     return make_error("INVALID_JSON_RESPONSE", "The AI returned malformed JSON.", "llm_error", "LLM_ERROR")
