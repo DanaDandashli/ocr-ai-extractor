@@ -49,7 +49,7 @@ Vision Processing Layer
 (PDF → Images)
         ↓
 Vision LLM Extraction
-(GPT-4o-mini)
+(qwen/qwen3.5-flash-02-23)
         ↓
 Structured JSON
         ↓
@@ -135,7 +135,10 @@ ocr-ai-extractor/
 ├── app/
 │   ├── fonts/                    # Arabic & custom fonts
 │   ├── exporters/                # Export systems
-│   │   ├── db/                   # Database layer
+│   │   ├── db/
+│   │   |    ├── connection.py
+│   │   |    ├── init_db.py
+│   │   |    └── schema.sql
 │   │   ├── excel_exporter.py
 │   │   ├── pdf_exporter.py
 │   │   ├── docx_exporter.py
@@ -178,8 +181,8 @@ Example:
 
 ```text
 temp_pages/
-├── invoice_20260512_page1.png
-├── invoice_20260512_page2.png
+├── page_20260512_1.png
+├── page_20260512_2.png
 ```
 
 These temporary images are used during Vision extraction.
@@ -242,7 +245,7 @@ Used for:
 ## Current Vision Model
 
 ```python
-gpt-4o-mini
+qwen/qwen3.5-flash-02-23
 ```
 
 Configured inside:
@@ -466,13 +469,13 @@ DB_PORT=5432
 Run once:
 
 ```bash
-python -m app.db.init_db
+python -m app.exporters.db.init_db
 ```
 
 This creates:
 
-- invoices
-- invoice_items
+- documents table — stores all extracted document data as JSONB,
+  supporting any document type (invoices, receipts, contracts, reports, etc.)
 
 ---
 
@@ -567,7 +570,7 @@ LLM Processing Layer
 (OpenAI / OpenRouter)
         ↓
 Structured JSON
-(Multi-invoice detection → pages[])
+(Multi-invoice detection → pages[] / sheets[])
         ↓
 Export Layer
 Excel · PDF · DOCX · HTML · Google Sheets · PostgreSQL
