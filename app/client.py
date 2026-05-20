@@ -5,44 +5,16 @@ import base64
 from dotenv import load_dotenv
 from openai import OpenAI
 from app.handle_errors import handle_llm_exception, safe_parse_json
-from app.cleaning import clean_text, cleanup_images
+from app.cleaning import clean_text, cleanup_images, remove_none_fields, normalize_date, normalize_currency
 from app.cache import get_cache, set_cache, file_hash, text_hash
 from app.file_extractor import pdf_to_images
+from app.lookup import DOCUMENT_TYPES, CLASSIFICATION_PROMPT, GROUPING_PROMPT, get_prompt
 
 load_dotenv()
 
-_MODEL = "qwen/qwen3.5-flash-02-23"
-_MAX_TOKENS = 4000
-
-document_extraction_prompt = """
-You are a precise data extraction engine.
-Read the document and extract ALL meaningful data from it.
-
-RULES:
-- Detect the document type from its content or header.
-- Extract every field exactly as printed. Do not compute, infer, or invent.
-- If a value is absent → null.
-- If tables exist → extract them as lists of row objects.
-- For multi-sheet spreadsheets, wrap sheets under a "sheets" array where each sheet contains a "document_type" field.
-- Return ONLY valid JSON. No markdown, no prose, no extra text.
-
-OUTPUT:
-Return a single JSON object where keys and values reflect exactly what the document contains.
-The structure is fully dynamic — you decide the fields based on the document.
-
-EXAMPLES:
-Invoice   → {{"invoice_number": "INV-001", "vendor": "...", "total": 500.0, ...}}
-Contract  → {{"parties": [...], "effective_date": "...", "terms": "...", ...}}
-Receipt   → {{"store": "...", "date": "...", "items": [...], "total": 12.5, ...}}
-Report    → {{"title": "...", "author": "...", "summary": "...", "sections": [...], ...}}
-"""
-
-grouping_prompt = """
-Given {n} PDF page images, group pages that belong to the same document.
-Return ONLY a JSON array of 0-based page index groups.
-Example (4 pages: 0-1 together, 2 and 3 separate):
-[[0,1],[2],[3]]
-"""
+_MODEL = "google/gemini-2.5-flash-lite"
+_MAX_TOKENS = 40000
+_TEMPERATURE = 0.0
 
 _client = OpenAI(
     base_url="https://openrouter.ai/api/v1",
@@ -50,6 +22,7 @@ _client = OpenAI(
 )
 
 
+# ── Private helpers ──────────────────────────────────────────────────────
 def _encode_image(path: str) -> str:
     with open(path, "rb") as f:
         return base64.b64encode(f.read()).decode("utf-8")
@@ -60,22 +33,96 @@ def _image_block(path: str) -> dict:
     return {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{_encode_image(path)}"}}
 
 
+def _normalize_result(result: dict) -> dict:
+    """Apply post-processing to any extracted result."""
+    result = remove_none_fields(result)
+
+    # Normalize dates
+    for field in ("date", "due_date"):
+        if field in result:
+            result[field] = normalize_date(result[field])
+
+    # Normalize currency
+    if "currency" in result:
+        result["currency"] = normalize_currency(result["currency"])
+
+    if "pages" in result:
+        for page in result["pages"]:
+            if "currency" in page:
+                page["currency"] = normalize_currency(page["currency"])
+
+    return result
+
+
+def _group_pages(image_paths: list[str]) -> list[list[int]]:
+    n = len(image_paths)
+    content = [{"type": "text", "text": GROUPING_PROMPT.format(n=n)}]
+    for idx, path in enumerate(image_paths):
+        content.append(_image_block(path))
+        content.append({"type": "text", "text": f"Page index {idx}"})
+    try:
+        response = _client.chat.completions.create(
+            model=_MODEL,
+            max_tokens=_MAX_TOKENS,
+            temperature=_TEMPERATURE,
+            messages=[{"role": "user", "content": content}],
+        )
+        groups = json.loads(response.choices[0].message.content.strip())
+        all_indices = [i for g in groups for i in g]
+        if sorted(all_indices) == list(range(n)):
+            return groups
+    except Exception:
+        pass
+    return [[i] for i in range(n)]
+
+
+# ── Document classification ──────────────────────────────────────────────
+def classify_document(content: str | list[dict]) -> str:
+    """
+    content: plain text string OR a list of OpenAI image_url message blocks.
+    Returns a doc type string like 'invoice', 'tender', etc.
+    """
+    if isinstance(content, str):
+        # trim for speed
+        user_content = f"{CLASSIFICATION_PROMPT}\n\n{content[:3000]}"
+    else:
+        # image blocks — prepend the instruction as a text block
+        user_content = [
+            {"type": "text", "text": CLASSIFICATION_PROMPT}] + content
+
+    try:
+        response = _client.chat.completions.create(
+            model=_MODEL,
+            max_tokens=10,
+            temperature=_TEMPERATURE,
+            messages=[{"role": "user", "content": user_content}],
+        )
+        detected = response.choices[0].message.content.strip().lower()
+        return detected if detected in DOCUMENT_TYPES else "other"
+    except Exception:
+        return "other"
+
+
+# ── Extraction ───────────────────────────────────────────────────────────
 def extract_from_text(text: str) -> dict:
     key = text_hash(text)
     cached = get_cache(key)
     if cached:
         return cached
 
+    doc_type = classify_document(text)
+    prompt = get_prompt(doc_type)
+
     try:
         response = _client.chat.completions.create(
             model=_MODEL,
             max_tokens=_MAX_TOKENS,
-            temperature=0,
+            temperature=_TEMPERATURE,
             response_format={"type": "json_object"},
             messages=[
                 {"role": "system", "content": "You extract structured data from documents."},
                 {"role": "user",
-                    "content": f"{document_extraction_prompt}\n\nDocument Text:\n{clean_text(text)}"},
+                    "content": f"{prompt}\n\nDocument Text:\n{clean_text(text)}"},
             ],
         )
     except Exception as e:
@@ -84,7 +131,9 @@ def extract_from_text(text: str) -> dict:
     raw = response.choices[0].message.content
 
     result = safe_parse_json(raw)
+    result = _normalize_result(result)
     set_cache(key, result)
+    # result["_doc_type"] = doc_type              # handy metadata
     return result
 
 
@@ -98,20 +147,29 @@ def extract_from_image_group(image_paths: list[str] | str) -> dict:
     if cached:
         return cached
 
-    content = [{"type": "text", "text": document_extraction_prompt}] + \
-        [_image_block(p) for p in image_paths]
+    image_blocks = [_image_block(p) for p in image_paths]
+    doc_type = classify_document(image_blocks)  # classify from images
+    prompt = get_prompt(doc_type)
+
+    content = [{"type": "text", "text": prompt}] + image_blocks
     try:
         response = _client.chat.completions.create(
             model=_MODEL,
             max_tokens=_MAX_TOKENS,
-            temperature=0,
-            messages=[{"role": "user", "content": content}],
+            temperature=_TEMPERATURE,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": "You extract structured JSON from document images."},
+                {"role": "user", "content": content}
+            ],
         )
     except Exception as e:
         return handle_llm_exception(e)
 
     result = safe_parse_json(response.choices[0].message.content)
+    result = _normalize_result(result)
     set_cache(key, result)
+    # result["_doc_type"] = doc_type
     return result
 
 
@@ -136,25 +194,3 @@ def extract_from_pdf(pdf_path: str) -> dict:
     result = results[0] if len(results) == 1 else {"pages": results}
     set_cache(key, result)
     return result
-
-
-def _group_pages(image_paths: list[str]) -> list[list[int]]:
-    n = len(image_paths)
-    content = [{"type": "text", "text": grouping_prompt.format(n=n)}]
-    for idx, path in enumerate(image_paths):
-        content.append(_image_block(path))
-        content.append({"type": "text", "text": f"Page index {idx}"})
-    try:
-        response = _client.chat.completions.create(
-            model=_MODEL,
-            max_tokens=_MAX_TOKENS,
-            temperature=0,
-            messages=[{"role": "user", "content": content}],
-        )
-        groups = json.loads(response.choices[0].message.content.strip())
-        all_indices = [i for g in groups for i in g]
-        if sorted(all_indices) == list(range(n)):
-            return groups
-    except Exception:
-        pass
-    return [[i] for i in range(n)]

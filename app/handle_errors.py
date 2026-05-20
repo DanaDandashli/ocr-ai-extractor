@@ -30,7 +30,7 @@ def validate_output(result: dict) -> dict | None:
         return make_error("INVALID_RESULT_TYPE", "Internal error: invalid extraction result.", "final_validation")
 
     # Multi-page PDF result
-    if "pages" in result:
+    if result.get("pages"):
         for page in result["pages"]:
             error = validate_output(page)
             if error:
@@ -38,7 +38,7 @@ def validate_output(result: dict) -> dict | None:
         return None
 
     # Multi-sheet Excel result
-    if "sheets" in result:
+    if result.get("sheets"):
         for sheet in result["sheets"]:
             doc_type = str(sheet.get("document_type") or "").strip().lower()
             if doc_type and doc_type not in _INVALID_TYPES:
@@ -46,10 +46,20 @@ def validate_output(result: dict) -> dict | None:
         return make_error("NO_DOCUMENT_FOUND", "No valid document was detected.", "final_validation")
 
     # Single document
-    doc_type = str(result.get("document_type") or "").strip().lower()
-    if not doc_type or doc_type in _INVALID_TYPES:
-        return make_error("NO_DOCUMENT_FOUND", "No valid document was detected. Please upload a clear document.", "final_validation")
+    # Accept if document has meaningful content even without document_type
+    has_content = any(
+        v not in (None, "", 0, 0.0, [], {})
+        for k, v in result.items()
+        if k != "document_type"
+    )
 
+    if not has_content and (not doc_type or doc_type in _INVALID_TYPES):
+        return make_error(
+            "NO_DOCUMENT_FOUND",
+            "No valid document was detected. Please upload a clear document.",
+            "final_validation"
+        )
+    
     return None
 
 
